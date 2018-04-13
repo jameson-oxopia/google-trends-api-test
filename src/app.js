@@ -32,12 +32,11 @@ function convertArrayOfObjectsToCSV(args) {
 
 const googleTrends = require('google-trends-api');
 
-var startDate = new Date("2017-01-01");
-var endDate = new Date("2017-12-31");
+function processTrends(country, year) {
 
+    var startDate = new Date(year+"-01-01");
+    var endDate = new Date(year+"-12-31");
 
-
-document.getElementById("getTrendbtn").addEventListener("click", function(){
     var textarea = document.getElementById('keywords');
 
     if(!textarea.value) {
@@ -50,7 +49,9 @@ document.getElementById("getTrendbtn").addEventListener("click", function(){
 
         var csvData = [];
 
-        googleTrends.interestOverTime({keyword: keywords, startTime: startDate, endTime: endDate})
+        var opt = {keyword: keywords, startTime: startDate, endTime: endDate, geo: country};
+
+        googleTrends.interestOverTime(opt)
         .then(function(results){
             var obj = JSON.parse(results);
             var datas = obj.default.timelineData;
@@ -89,4 +90,18 @@ document.getElementById("getTrendbtn").addEventListener("click", function(){
           console.error('Oh no there was an error', err);
         });
     }
+}
+
+document.getElementById("getTrendbtnBE").addEventListener("click", function(){
+    var country = 'BE';
+    var year = document.getElementById('year').value;
+
+    processTrends(country, year);
+});
+
+document.getElementById("getTrendbtnNL").addEventListener("click", function(){
+    var country = 'NL';
+    var year = document.getElementById('year').value;
+
+    processTrends(country, year);
 });
