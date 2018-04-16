@@ -1,3 +1,6 @@
+const googleTrends = require('google-trends-api');
+
+var t;
 
 function convertArrayOfObjectsToCSV(args) {
         var result, ctr, keys, columnDelimiter, lineDelimiter, data;
@@ -30,7 +33,32 @@ function convertArrayOfObjectsToCSV(args) {
         return result;
 }
 
-const googleTrends = require('google-trends-api');
+function dlCsv(csvData) {
+    var csv = convertArrayOfObjectsToCSV({
+        data: csvData
+    });
+
+    if (csv) {
+        filename = 'trends_export.csv';
+
+        if (!csv.match(/^data:text\/csv/i)) {
+            csv = 'data:text/csv;charset=utf-8,' + csv;
+        }
+        data = encodeURI(csv);
+
+        link = document.createElement('a');
+        link.setAttribute('href', data);
+        link.setAttribute('download', filename);
+        link.click();
+    }
+}
+
+function stopT() {
+    clearInterval(t);
+    document.getElementById("getTrendbtnNL").disabled = false;
+    document.getElementById("getTrendbtnBE").disabled = false;
+    document.getElementById("loading").style.display = 'none';
+}
 
 function processTrends(country, year) {
 
@@ -43,52 +71,60 @@ function processTrends(country, year) {
         alert('please input keywords');
         textarea.focus();
     } else {
+
         var split = textarea.value.replace(/\r\n/g,"\n").split("\n");
         var keywords = [];
-        for(var c=0; c<split.length; c++) { if(split[c] && keywords.indexOf(split[c]) == -1) { keywords.push(split[c]); } }
+        for(var c=0; c<split.length; c++) { if(split[c] && keywords.indexOf(split[c]) == -1) { keywords.push(split[c].trim()); } }
 
         var csvData = [];
 
-        var opt = {keyword: keywords, startTime: startDate, endTime: endDate, geo: country};
+        var datactr = 0;
 
-        googleTrends.interestOverTime(opt)
-        .then(function(results){
-            var obj = JSON.parse(results);
-            var datas = obj.default.timelineData;
+        document.getElementById("getTrendbtnNL").disabled = true;
+        document.getElementById("getTrendbtnBE").disabled = true;
+        document.getElementById("loading").style.display = 'block';
 
-            //console.log(datas);
+        var ctr=0;
+        var loop = setInterval(function() {
 
-            for(var x=0; x<keywords.length; x++) {
+            var k = keywords[ctr];
+            var opt = {keyword: k, startTime: startDate, endTime: endDate, geo: country};
+
+            googleTrends.interestOverTime(opt)
+            .then(function(results){
+
+                var obj = JSON.parse(results);
+                var datas = obj.default.timelineData;
+
                 var d = {};
-                d['keyword'] = keywords[x];
+                d['keyword'] = k;
                 for(var y=0; y<datas.length; y++) {
                     var tdata = datas[y];
-                    d[tdata.formattedTime] = tdata.formattedValue[x];
+                    var val = tdata.formattedValue[0];
+                    if(val === undefined) { val=0; }
+                    d[tdata.formattedTime] = val;
                 }
-                csvData.push(d);
-            }
 
-            var csv = convertArrayOfObjectsToCSV({
-                data: csvData
+                csvData.push(d);
+                datactr++;
+            })
+            .catch(function(err){
+              console.error('Oh no there was an error', err);
             });
 
-            if (csv) {
-                filename = 'trends_export.csv';
-
-                if (!csv.match(/^data:text\/csv/i)) {
-                    csv = 'data:text/csv;charset=utf-8,' + csv;
-                }
-                data = encodeURI(csv);
-
-                link = document.createElement('a');
-                link.setAttribute('href', data);
-                link.setAttribute('download', filename);
-                link.click();
+            ctr++;
+            if(keywords.length == ctr) {
+                clearInterval(loop);
             }
-        })
-        .catch(function(err){
-          console.error('Oh no there was an error', err);
-        });
+        }, 500);
+
+        t = setInterval(function() {
+            console.log(csvData.length+ '=' +keywords.length);
+            if(datactr == keywords.length) {
+                dlCsv(csvData);
+                stopT();
+            }
+        }, 1000);
     }
 }
 
